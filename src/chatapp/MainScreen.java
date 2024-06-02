@@ -6,6 +6,7 @@ import static processing.core.PConstants.*;
 public class MainScreen implements Screen {
     private static String username = "";
     private static boolean editing = false;
+    private static String errorMsg = "";
 
     public void drawFrame(PGraphics g) {
         g.background(255, 255, 255);
@@ -23,8 +24,9 @@ public class MainScreen implements Screen {
         g.rect(0.4f * Client.getWidth(), 0.3f * Client.getHeight(), 0.2f * Client.getWidth(), 0.05f * Client.getHeight());
         g.fill(0);
         g.textSize(20);
-        g.text("Go!", 0.5f * Client.getWidth(), 0.33f * Client.getHeight());
+        g.text("Go!", Client.getWidth() / 2.f, 0.33f * Client.getHeight());
         g.text(username, Client.getWidth() / 2.f, 0.25f * Client.getHeight());
+        g.text(errorMsg, Client.getWidth() / 2.f, 0.37f * Client.getHeight());
     }
 
     @Override
@@ -46,10 +48,11 @@ public class MainScreen implements Screen {
             editing = true;
             System.out.println(editing);
         } else if ((mouseX > goBoxXStart) && (mouseX < goBoxXEnd) && (mouseY > goBoxYStart) && (mouseY < goBoxYEnd)) {
+            errorMsg = "";
             if (username.isEmpty()) {
-                System.out.println("no username");
+                errorMsg = "You must enter a username.";
             } else {
-                System.out.println("username exists");
+                Client.sendMessage("join:" + username);
             }
         } else {
             editing = false;

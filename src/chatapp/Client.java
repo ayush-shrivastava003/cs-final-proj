@@ -11,7 +11,7 @@ public class Client extends PApplet {
 
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 3000;
-    private static final int HEADER_SIZE = 10;
+    private static final int HEADER_SIZE = 4;
     private static final int WIDTH = 600;
     private static final int HEIGHT = 800;
     private static SocketChannel channel;
@@ -70,6 +70,25 @@ public class Client extends PApplet {
                 System.out.println(e);
             }
         }));
+    }
+
+    public static void sendMessage(String content) {
+        try {
+            byte[] messageBytes = content.getBytes();
+            int messageLength = messageBytes.length;
+            ByteBuffer buffer = ByteBuffer.allocate(HEADER_SIZE + messageLength);
+            buffer.putInt(messageLength);
+            buffer.put(messageBytes);
+            buffer.flip();
+
+            while (buffer.hasRemaining()) {
+                channel.write(buffer);
+            }
+
+            System.out.println("sent: " + content);
+        } catch (IOException e) {
+            System.out.println(e);
+        }
     }
 
     @Override
