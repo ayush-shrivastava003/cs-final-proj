@@ -9,11 +9,12 @@ import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Iterator;
+import java.util.HashMap;
 
 public class Server {
     private static final int PORT = 3000;
     private static final int HEADER_SIZE = 4;
-//    private HashMap<SocketChannel, ClientInfo> clients = new HashMap<SocketChannel, ClientInfo>();
+    private static final HashMap<SocketChannel, ClientInfo> clients = new HashMap<>();
 
     public static void main(String[] args) {
         try {
@@ -38,6 +39,7 @@ public class Server {
                         SocketChannel client = ((ServerSocketChannel) k.channel()).accept();
                         client.configureBlocking(false);
                         client.register(selector, SelectionKey.OP_READ);
+                        clients.put(client, new ClientInfo());
                         System.out.println("New client connected: " + client.getRemoteAddress());
                     }
 
@@ -51,6 +53,13 @@ public class Server {
 
                             if (initRead == -1) {
                                 System.out.println("Client " + client.getRemoteAddress() + " has disconnected");
+                                ClientInfo user = clients.get(client);
+                                if (user.isInRoom()) {
+                                    for (SocketChannel c : clients.keySet()) {
+                                        if (c != client && clients.get(c).isInRoom()) sendMessage(c, "leave:" + user.getUsername());
+                                    }
+                                }
+                                clients.remove(client);
                                 client.close();
                             }
 
@@ -62,7 +71,7 @@ public class Server {
                                 while (buff.hasRemaining()) {
                                     System.out.println("has remaining");
                                     int bytesRead = client.read(buff);
-                                    if (bytesRead == -1 || bytesRead == 0) break;
+                                    if (bytesRead == -1) break;
                                 }
 
                                 buff.flip();
@@ -71,11 +80,11 @@ public class Server {
                                 String msg = new String(messageBytes);
 
                                 System.out.println(msg + " from " + client.getRemoteAddress());
-                            } else {
-                                System.out.println("how did you even get here?");
+                                parseMessage(msg, client);
                             }
                         } catch (Exception e) {
-                            System.out.println("uh oh" + e.toString());
+                            System.out.println("uh oh");
+                            e.printStackTrace();
                         }
                     }
 
@@ -84,8 +93,58 @@ public class Server {
             }
 
         } catch (IOException e) { // initializing the selector could throw this
-            System.out.println(e.toString());
+            e.printStackTrace();
             System.exit(1);
+        }
+    }
+
+    public static void parseMessage(String msg, SocketChannel client) {
+        String[] split = msg.split(":");
+
+        switch (split[0]) {
+            case "join": {
+                String username = split[1];
+
+                for (ClientInfo c : clients.values()) {
+                    if (c != clients.get(client) && c.getUsername() != null && c.getUsername().equals(username)) {
+                        sendMessage(client, "join_fail:Username in use");
+                        return;
+                    }
+                }
+
+                ClientInfo info = clients.get(client);
+                info.setRoomState(true);
+                info.setUsername(split[1]);
+
+                for (SocketChannel c : clients.keySet()) {
+                    if (c != client && clients.get(c).isInRoom()) sendMessage(c, "enter:" + split[1]);
+                }
+
+                sendMessage(client, "join_success");
+                return;
+            }
+
+            case "message": {
+                for (SocketChannel c : clients.keySet()) {
+                    ClientInfo info = clients.get(c);
+                    String username = clients.get(client).getUsername();
+                    String rest = msg.substring(msg.indexOf(":") + 1);
+                    if (c != client && info.isInRoom()) sendMessage(c, "message:" + username + ":" + rest);
+                }
+            }
+        }
+    }
+
+    public static void sendMessage(SocketChannel client, String msg) {
+        try {
+            byte[] bytes = msg.getBytes();
+            ByteBuffer buffer = ByteBuffer.allocate(HEADER_SIZE + bytes.length);
+            buffer.putInt(bytes.length);
+            buffer.put(bytes);
+            buffer.flip();
+            client.write(buffer);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

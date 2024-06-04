@@ -9,7 +9,7 @@ public class MainScreen implements Screen {
     private static String errorMsg = "";
 
     public void drawFrame(PGraphics g) {
-        g.background(255, 255, 255);
+        g.background(255);
         g.fill(0);
         g.textAlign(CENTER);
         g.textSize(48);
@@ -49,10 +49,11 @@ public class MainScreen implements Screen {
             System.out.println(editing);
         } else if ((mouseX > goBoxXStart) && (mouseX < goBoxXEnd) && (mouseY > goBoxYStart) && (mouseY < goBoxYEnd)) {
             errorMsg = "";
-            if (username.isEmpty()) {
+            if (username.isBlank()) {
                 errorMsg = "You must enter a username.";
             } else {
                 Client.sendMessage("join:" + username);
+//                Client.changeScreen(new RoomScreen())
             }
         } else {
             editing = false;
@@ -66,6 +67,28 @@ public class MainScreen implements Screen {
             username += key;
         } else if (key == '\b' && !username.isEmpty()) {
             username = username.substring(0, username.length() - 1);
+        }
+    }
+
+    public boolean handleMessage(String res) {
+        String[] split = res.split(":");
+
+        switch (split[0]) {
+            case "join_success": {
+                Client.changeScreen(new RoomScreen());
+                RoomScreen.messages.add(username + " has entered the chat!");
+                RoomScreen.username = username;
+                return true;
+            }
+
+            case "join_fail": {
+                errorMsg = split[1];
+                return true;
+            }
+
+            default: {
+                return false;
+            }
         }
     }
 }
